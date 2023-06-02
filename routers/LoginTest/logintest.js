@@ -4,50 +4,111 @@ const conn = require("../../DB/db");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
-const users = [
-  { id: 1, name: "John", refresh: null },
-  { id: 2, name: "Tom", refresh: null },
-  { id: 3, name: "Chris", refresh: null },
-  { id: 4, name: "David", refresh: null },
-];
+router.post("/loginAPI", (req, res) => {
+  const { username, password, tel, ipaddress } = req.body;
 
-router.post("/login", (req, res) => {
-  const { name } = req.body;
+  sql = `SELECT
+  tb_permission.acc_id,user_role,tb_permission.name,tb_permission_account.username,tb_permission_account.password,tb_permission_account.tel
+FROM
+  tb_permission
+LEFT JOIN tb_permission_account ON tb_permission.acc_id = tb_permission_account.acc_id
+WHERE
+  tb_permission_account.username = ':username' AND tb_permission.token = ':ipaddress' AND tb_permission_account.password = ':password'  LIMIT 1 `;
+  sql = sql.replace(":username", username);
+  sql = sql.replace(":password", password);
+  sql = sql.replace(":ipaddress", ipaddress);
+  try {
+    console.log("loginAPI : ", sql); //ตรวจสอบ Token อีกครั้งว่ามีการเปลี่ยนแปลงไหม
+    conn.query(sql, (err, results, fields) => {
+      if (err) {
+        console.log(err);
+        return res.status(400).send({ Message: err });
+      }
+      if (results.length > 0) {
+        const access_token = jwtGenerate(results, "2m");
+        const refresh_token = jwtRefreshTokenGenerate(results, "1h");
 
-  //find user
-  const user = users.findIndex((e) => e.name === name);
-
-  if (!name || user < 0) {
-    return res.send(400);
+        results.refresh = refresh_token;
+        res.json({
+          access_token,
+          refresh_token,
+        });
+        console.log("Login User : " + results[0].username);
+        res.status(200).send();
+      } else {
+        // ไม่มีข้อมูล
+        console.log(`Login Fail Username : ` + req.body.username + ` `);
+        res.status(400).send({
+          Message: `Login Fail Username : ` + req.body.username + ` `,
+        });
+      }
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send();
   }
-
-  const access_token = jwtGenerate(users[user]);
-  const refresh_token = jwtRefreshTokenGenerate(users[user]);
-
-  users[user].refresh = refresh_token;
-
-  res.json({
-    access_token,
-    refresh_token,
-  });
 });
 
-const jwtGenerate = (user) => {
-  const accessToken = jwt.sign(
-    { name: user.name, id: user.id },
-    process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "1m", algorithm: "HS256" }
-  );
+router.post("/checkpage", (req, res) => {
+  const { username, password, ipaddress } = req.body;
+  sql = `SELECT
+  tb_permission.acc_id,user_role,tb_permission.name,tb_permission_account.username,tb_permission_account.password,tb_permission_account.tel
+FROM
+  tb_permission
+LEFT JOIN tb_permission_account ON tb_permission.acc_id = tb_permission_account.acc_id
+WHERE
+  tb_permission_account.username = ':username' AND tb_permission.token = ':ipaddress' AND tb_permission_account.password = ':password'  LIMIT 1 `;
+  sql = sql.replace(":username", username);
+  sql = sql.replace(":password", password);
+  sql = sql.replace(":ipaddress", ipaddress);
+
+  try {
+    // console.log("checkpage : ", sql); //ตรวจสอบ Token อีกครั้งว่ามีการเปลี่ยนแปลงไหม
+    conn.query(sql, (err, results, fields) => {
+      if (err) {
+        console.log(err);
+        return res.status(400).send();
+      }
+      if (results.length > 0) {
+        const access_token = jwtGenerate(results, "2m");
+        const refresh_token = jwtRefreshTokenGenerate(results, "1h");
+
+        results[0].refresh = refresh_token;
+
+        res.status(200).send({
+          access_token,
+          refresh_token,
+        });
+        console.log("Login Page User : " + results[0].username);
+      } else {
+        console.log(`Login Page Fail Username : ` + req.body.username + ` `);
+        res.status(400).send({
+          Message: `Login Page Fail Username : ` + req.body.username + ` `,
+        });
+      }
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send();
+  }
+});
+
+/// กำหมดให้ Tokens Start Timeout
+const jwtGenerate = (data, time) => {
+  const accessToken = jwt.sign({ data }, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: time,
+    algorithm: "HS256",
+  });
 
   return accessToken;
 };
 
-const jwtRefreshTokenGenerate = (user) => {
-  const refreshToken = jwt.sign(
-    { name: user.name, id: user.id },
-    process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: "1d", algorithm: "HS256" }
-  );
+/// กำหมดให้ Tokens Refresh Timeout
+const jwtRefreshTokenGenerate = (data, time) => {
+  const refreshToken = jwt.sign({ data }, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: time,
+    algorithm: "HS256",
+  });
 
   return refreshToken;
 };
@@ -67,29 +128,8 @@ const jwtValidate = (req, res, next) => {
   }
 };
 
-router.get("/:id", jwtValidate, (req, res) => {
-  const { id } = req.params;
-
-  try {
-    conn.query(
-      `SELECT id,contract_number,creditcard_no,contract_date ,amount,limit_day,period ,
-        pay_year,installment,pay_day_in_month_id,pay_start_month_id,principle,interest,
-        pay_start_year_id,pay_end_date,total,credit_type_id,interest_contract_type,interest_fee_miss,
-        last_date_paid,last_amount_paid,guarantee_no,guarantee_date,cases_note
-        FROM tb_cases where id=?`,
-      [id],
-      (err, results, fields) => {
-        if (err) {
-          console.log(err);
-          return res.status(400).send();
-        }
-        res.status(200).json(results);
-      }
-    );
-  } catch (err) {
-    console.log(err);
-    return res.status(500).send();
-  }
+router.get("/", jwtValidate, (req, res) => {
+  res.status(200).send("Hello World!");
 });
 
 const jwtRefreshTokenValidate = (req, res, next) => {
@@ -112,22 +152,48 @@ const jwtRefreshTokenValidate = (req, res, next) => {
 };
 
 router.post("/refresh", jwtRefreshTokenValidate, (req, res) => {
-  const user = users.find(
-    (e) => e.id === req.user.id && e.name === req.user.name
-  );
+  const { username, password, ipaddress } = req.body;
 
-  const userIndex = users.findIndex((e) => e.refresh === req.user.token);
+  sql = `SELECT
+  tb_permission.acc_id,user_role,tb_permission.name,tb_permission_account.username,tb_permission_account.password,tb_permission_account.tel
+FROM
+  tb_permission
+LEFT JOIN tb_permission_account ON tb_permission.acc_id = tb_permission_account.acc_id
+WHERE
+  tb_permission_account.username = ':username' AND tb_permission.token = ':ipaddress' AND tb_permission_account.password = ':password'  LIMIT 1 `;
+  sql = sql.replace(":username", username);
+  sql = sql.replace(":password", password);
+  sql = sql.replace(":ipaddress", ipaddress);
 
-  if (!user || userIndex < 0) return res.sendStatus(401);
+  try {
+    console.log(user);
+    conn.query(sql, (err, results, fields) => {
+      if (err) {
+        console.log(err);
+        return res.status(401).send();
+      }
+      if (results.length > 0) {
+        const access_token = jwtGenerate(results, "5m");
+        const refresh_token = jwtRefreshTokenGenerate(results, "1h");
 
-  const access_token = jwtGenerate(user);
-  const refresh_token = jwtRefreshTokenGenerate(user);
-  users[userIndex].refresh = refresh_token;
+        results[0].refresh = refresh_token;
 
-  return res.json({
-    access_token,
-    refresh_token,
-  });
+        res.status(200).send({
+          access_token,
+          refresh_token,
+        });
+        console.log("Login Page User : " + results[0].username);
+      } else {
+        console.log(`Login Page Fail Username : ` + req.body.username + ` `);
+        res.status(400).send({
+          Message: `Login Page Fail Username : ` + req.body.username + ` `,
+        });
+      }
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send();
+  }
 });
 
 module.exports = router;

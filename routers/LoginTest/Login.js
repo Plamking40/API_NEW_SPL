@@ -47,14 +47,16 @@ WHERE
         console.log(err);
         return res.status(400).send();
       }
-      // if (username == usernames && password == passwords) {
-      //   res.status(200).send({ Message: "ล็อคอินเสร็จสิ้น" });
-      // } else {
-      //   res.status(400).send({ Message: "กรุณาล็อคอินใหม่อีกครั้ง" });
-      // }
       if (results.length > 0) {
-        res.status(200).json({
-          Message: "ล็อคอินเสร็จสิ้น",
+        const access_token = jwtGenerate(results[0]);
+        const refresh_token = jwtRefreshTokenGenerate(results[0]);
+
+        results[0].refresh = refresh_token;
+
+        res.status(200).send({
+          Message: "ล็อคอินจากเดิมเสร็จสิ้น",
+          access_token,
+          refresh_token,
         });
       } else {
         res.status(400).send({ Message: "กรุณาล็อคอินใหม่อีกครั้ง" });
@@ -121,6 +123,7 @@ WHERE
         });
       } else {
         // ไม่มีข้อมูล
+        console.log(sql);
         console.log("ไม่มีข้อมูล");
         res.status(400).send({ Message: "กรุณาล็อคอินใหม่อีกครั้ง" });
       }
@@ -129,52 +132,6 @@ WHERE
     console.log(err);
     return res.status(500).send();
   }
-
-  // if (user < 0) {
-  //   console.log(
-  //     "Login User :" + username + " " + password + " " + tel + " " + ipaddress
-  //   );
-  //   return res.status(400).send({
-  //     Message: "กรุณาล็อคอินใหม่อีกครั้ง",
-  //     MessageUser: user,
-  //   });
-  // }
-
-  // if (
-  //   users[user].password === password &&
-  //   users[user].tel === tel &&
-  //   users[user].ipaddress === ipaddress
-  // ) {
-  //   const access_token = jwtGenerate(users[user]);
-  //   const refresh_token = jwtRefreshTokenGenerate(users[user]);
-
-  //   users[user].refresh = refresh_token;
-  //   console.log(
-  //     "Login Success :" +
-  //       username +
-  //       " " +
-  //       password +
-  //       " " +
-  //       tel +
-  //       " " +
-  //       ipaddress
-  //   );
-  //   return res.json({
-  //     MessageLogin: "Login successful",
-  //     MessageRole: users[user].role,
-  //     MessageToken: "AccessToken",
-  //     access_token,
-  //     refresh_token,
-  //   });
-  // } else {
-  //   console.log(
-  //     "Login Error :" + username + " " + password + " " + tel + " " + ipaddress
-  //   );
-  //   return res.status(400).send({
-  //     Message: "กรุณาล็อคอินใหม่อีกครั้ง",
-  //     MessageUser: user,
-  //   });
-  // }
 });
 
 router.post("/login", (req, res) => {
@@ -234,7 +191,7 @@ const jwtGenerate = (user) => {
   const accessToken = jwt.sign(
     { name: user.name, id: user.id },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "5m", algorithm: "HS256" }
+    { expiresIn: "1m", algorithm: "HS256" }
   );
 
   return accessToken;

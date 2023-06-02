@@ -44,14 +44,11 @@ const jwtValidate = (req, res, next) => {
   }
 };
 
-router.get("/case/:id", (req, res) => {
+router.get("/case/:id", jwtValidate, (req, res) => {
   const { id } = req.params;
-  const token = req.headers["authorization"].replace("Bearer ", "");
-  console.log(req.headers["authorization"].replace("Bearer ", ""));
+
   try {
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-      if (err) throw new Error(error);
-    });
+    console.log("ดึงข้อมูล");
     conn.query(
       `SELECT id,partition_rec,customer_id,status_id,received_date,branch,area_id,region_id,guaranty_type_id FROM tb_cases where id = ?`,
       [id],
@@ -94,7 +91,7 @@ router.get("/contract/:id", (req, res) => {
   }
 });
 
-router.patch("/update/case/:id", (req, res) => {
+router.patch("/update/case/:id", jwtValidate, (req, res) => {
   const { id } = req.params;
   const {
     partition_rec,
@@ -108,8 +105,9 @@ router.patch("/update/case/:id", (req, res) => {
   } = req.body;
 
   try {
+    console.log("แก้ไขข้อมูล", req.body);
     conn.query(
-      `UPDATE tb_cases SET partition_rec=?,customer_id=?,status_id=?,received_date=?,branch=?,area_id=?,region_id=?,guaranty_type_id=? WHERE id = ?`,
+      spl,
       [
         partition_rec,
         customer_id,
@@ -188,9 +186,9 @@ router.patch("/update/contract/:id", (req, res) => {
       last_date_paid=?,
       last_amount_paid=?,
       guarantee_no=?,
-      guarantee_date=?,
+      guarantee_date=?
   WHERE
-      id = ?;`,
+      id = ?`,
       [
         contract_number,
         creditcard_no,

@@ -15,6 +15,7 @@ const db = require("./DB/db");
 db.connect((err) => {
   if (err) {
     console.log(err);
+    console.log("Warning : Open database connection");
     return;
   }
   console.log("MySQL Successfully Connected !!");
@@ -44,8 +45,8 @@ const returnbankRouter = require("./routers/11CaseReturnBank/return_bank_router"
 const sellingpropertyRouter = require("./routers/12CaseSellingProperty/selling_property_router");
 const bankruptcyRouter = require("./routers/13CaseBankruptcy/bankruptcy_router");
 
-app.use("/auth", loginRotuer);
-app.use("/authTest", logintestRotuer);
+// app.use("/auth", loginRotuer);
+app.use("/auth", logintestRotuer);
 app.use("/seacrh", seacrhRouter); // Seacrh
 app.use("/information", informationRouter); //1
 app.use("/notice", noticeRouter); //2
